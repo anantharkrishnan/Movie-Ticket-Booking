@@ -42,7 +42,7 @@ const getTheatreById= async(req,res)=>{
           model: "movie"
         }
       });
-        if(!theatre){
+        if(!theatreId){
              return res.status(404).json({message:"theatre not found"})
         }
         res.status(200).json({data:theatreId})
@@ -68,7 +68,7 @@ const updateTheatre = async(req,res)=>{
 const deleteTheatre = async(req,res)=>{
     try {
         const theatreDelete= await theatre.findByIdAndDelete(req.params.id)
-        if(!theatre){
+        if(!theatreDelete){
             return res.status(404).json({message:"theatre not found"})
         }
         res.status(200).json({message:"movie deleted successfully",data:theatreDelete})

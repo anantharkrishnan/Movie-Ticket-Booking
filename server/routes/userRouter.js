@@ -4,7 +4,7 @@ const upload= require("../middlewares/multer")
 
 
 const userRouter= express.Router()
-const {signUp,login,checkUser,profile,updateUser,updateProfilePic,logout}= require("../controllers/userController")
+const {signUp,login,checkUser,profile,updateUser,logout}= require("../controllers/userController")
 
 userRouter.post("/signup",signUp)
 userRouter.post("/login",login)
