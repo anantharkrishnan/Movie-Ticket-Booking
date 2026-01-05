@@ -9,7 +9,7 @@ import Login from "./pages/Login"
 import Footer from './components/Footer'
 import MovieDetails from './pages/MovieDetails'
 import TheatreSelection from './pages/TheatreSelection.jsx'
-import ComingsoonDetails from './pages/comingsoonDetails'
+import ComingsoonDetails from './pages/ComingsoonDetails'
 import ComingsoonMovies from "./pages/ComingsoonMovies"
 import AdminRoutes from './admin/routes/AdminRoutes'
 import UserNavbar from './components/UserNavbar'
