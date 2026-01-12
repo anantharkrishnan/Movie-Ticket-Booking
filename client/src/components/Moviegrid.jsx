@@ -12,9 +12,13 @@ const MovieGrid = () => {
   const [loading, setLoading] = useState(true);
 
   const languages = ['English', 'Hindi', 'Tamil', 'Kannada', 'Telugu', 'Malayalam'];
-  const filteredMovies = movies
-    .filter(m => !selectedLanguage || m.language === selectedLanguage)
-    .filter(m => m.title.toLowerCase().includes(search.toLowerCase()));
+ const filteredMovies = Array.isArray(movies)
+  ? movies
+      .filter(m => !selectedLanguage || m.language === selectedLanguage)
+      .filter(m =>
+        m.title?.toLowerCase().includes(search.toLowerCase())
+      )
+  : [];
 
   useEffect(() => {
     setLoading(true);
