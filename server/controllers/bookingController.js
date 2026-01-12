@@ -1,11 +1,17 @@
 const Booking = require("../models/bookingModel");
-const User= require("../models/userModel") 
-const Show = require("../models/showModel"); 
-const movie = require("../models/movieModel")
-const redisClient = require("../config/redis");
-const Theatre=require("../models/theatreModel")
+const User = require("../models/userModel");
+const Show = require("../models/showModel");
+const movie = require("../models/movieModel");
+// const redisClient = require("../config/redis"); ❌ Redis DISABLED
+const Theatre = require("../models/theatreModel");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+// Redis disabled fallback
+const redisClient = null;
+
+/* =========================
+   CONFIRM BOOKING
+   ========================= */
 const confirmBooking = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -15,7 +21,6 @@ const confirmBooking = async (req, res) => {
       return res.status(400).json({ message: "paymentIntentId is required" });
     }
 
-    
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
     console.log("PaymentIntent status:", paymentIntent.status);
 
@@ -23,7 +28,6 @@ const confirmBooking = async (req, res) => {
       return res.status(400).json({ message: "Payment not successful" });
     }
 
-    
     const existingBooking = await Booking.findOne({ paymentIntentId });
     if (existingBooking) {
       return res.status(200).json({
@@ -33,24 +37,26 @@ const confirmBooking = async (req, res) => {
       });
     }
 
-    
-    for (const seatId of seats) {
-      const lockOwner = await redisClient.get(`lock:${showId}:${seatId}`);
-      if (lockOwner !== userId) {
-        return res.status(409).json({ message: `Seat ${seatId} lock expired` });
-      }
-    }
+    // 🔴 Redis seat-lock verification DISABLED
+    // for (const seatId of seats) {
+    //   const lockOwner = await redisClient.get(`lock:${showId}:${seatId}`);
+    //   if (lockOwner !== userId) {
+    //     return res.status(409).json({ message: `Seat ${seatId} lock expired` });
+    //   }
+    // }
 
-  
     const show = await Show.findById(showId).populate("movie theatre");
     if (!show) return res.status(404).json({ message: "Show not found" });
-    if (!show.theatre) return res.status(500).json({ message: "Theatre information missing for this show" });
+    if (!show.theatre) {
+      return res
+        .status(500)
+        .json({ message: "Theatre information missing for this show" });
+    }
 
-    
     const booking = await Booking.create({
       user: userId,
       movie: show.movie._id,
-      Theatre: show.theatre._id, 
+      Theatre: show.theatre._id,
       show: showId,
       seats,
       totalPrice,
@@ -60,7 +66,7 @@ const confirmBooking = async (req, res) => {
       paymentIntentId,
     });
 
-    
+    // Update seat status in MongoDB
     seats.forEach(seatId => {
       const rowChar = seatId.charAt(0);
       const seatNum = Number(seatId.slice(1));
@@ -68,13 +74,14 @@ const confirmBooking = async (req, res) => {
       const seat = row?.seats.find(s => s.number === seatNum);
       if (seat) seat.status = "booked";
     });
+
     await show.save();
 
-    
-    for (const seatId of seats) {
-      await redisClient.del(`lock:${showId}:${seatId}`);
-      await redisClient.hDel(`show:${showId}:seats`, seatId);
-    }
+    // 🔴 Redis cleanup DISABLED
+    // for (const seatId of seats) {
+    //   await redisClient.del(`lock:${showId}:${seatId}`);
+    //   await redisClient.hDel(`show:${showId}:seats`, seatId);
+    // }
 
     return res.status(201).json({ success: true, booking });
 
@@ -84,6 +91,9 @@ const confirmBooking = async (req, res) => {
   }
 };
 
+/* =========================
+   GET ALL BOOKINGS
+   ========================= */
 const getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.find()
@@ -105,7 +115,9 @@ const getAllBookings = async (req, res) => {
   }
 };
 
-
+/* =========================
+   GET MY BOOKINGS
+   ========================= */
 const getMyBookings = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -125,7 +137,9 @@ const getMyBookings = async (req, res) => {
   }
 };
 
-
+/* =========================
+   DELETE BOOKING
+   ========================= */
 const deleteBooking = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -139,37 +153,30 @@ const deleteBooking = async (req, res) => {
 
     const { show: showId, seats, user: userId } = booking;
 
-   
     const show = await Show.findById(showId);
     if (!show) {
       return res.status(404).json({ message: "Show not found" });
     }
 
-    
+    // Release seats in MongoDB
     seats.forEach(seatId => {
       const rowChar = seatId.charAt(0);
       const seatNum = Number(seatId.slice(1));
-
       const row = show.seatLayout.find(r => r.row === rowChar);
       const seat = row?.seats.find(s => s.number === seatNum);
-
-      if (seat) {
-        seat.status = "available"; 
-      }
+      if (seat) seat.status = "available";
     });
 
     await show.save();
 
- 
-    for (const seatId of seats) {
-      await redisClient.del(`lock:${showId}:${seatId}`);
-      await redisClient.hDel(`show:${showId}:seats`, seatId);
-    }
+    // 🔴 Redis cleanup DISABLED
+    // for (const seatId of seats) {
+    //   await redisClient.del(`lock:${showId}:${seatId}`);
+    //   await redisClient.hDel(`show:${showId}:seats`, seatId);
+    // }
 
-    
     await Booking.findByIdAndDelete(req.params.id);
 
-   
     await User.findByIdAndUpdate(userId, {
       $pull: { bookings: booking._id },
     });
@@ -188,11 +195,11 @@ const deleteBooking = async (req, res) => {
   }
 };
 
-
 module.exports = {
   confirmBooking,
   getAllBookings,
- getMyBookings,
+  getMyBookings,
   deleteBooking,
 };
+
 
